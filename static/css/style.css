@@ -1,0 +1,435 @@
+/* Reset & Base */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+#app {
+    display: flex;
+    height: 100%;
+    width: 100%;
+}
+
+/* Map */
+#map {
+    flex: 1;
+    height: 100%;
+    z-index: 1;
+}
+
+/* Panel */
+.panel {
+    width: var(--panel-width);
+    height: 100%;
+    background: var(--color-bg-panel);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-lg);
+    z-index: 10;
+}
+
+.panel-header {
+    padding: var(--space-md);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.panel-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: var(--space-sm);
+    color: var(--color-primary);
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+.tab {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+}
+
+.tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-text);
+}
+
+.tab.active {
+    background: var(--color-bg-input);
+    color: var(--color-primary);
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+    padding: var(--space-md);
+    overflow-y: auto;
+    flex: 1;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: var(--space-md);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--space-xs);
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+input[type="text"],
+input[type="number"],
+select {
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-bg-input);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-size: 0.875rem;
+    transition: var(--transition-fast);
+}
+
+input:focus,
+select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(0, 217, 255, 0.2);
+}
+
+/* Input Group */
+.input-group {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+.input-group input {
+    flex: 1;
+}
+
+.input-group button {
+    padding: var(--space-sm);
+    background: var(--color-bg-input);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.input-group button:hover {
+    background: var(--color-primary);
+    color: var(--color-bg);
+}
+
+.coords-display {
+    margin-top: var(--space-xs);
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+/* Type Buttons */
+.type-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xs);
+}
+
+.type-btn {
+    padding: var(--space-sm);
+    background: var(--color-bg-input);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.type-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.type-btn.active {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.type-btn[data-type="attractor"].active {
+    border-color: var(--color-attractor);
+    color: var(--color-attractor);
+}
+
+.type-btn[data-type="void"].active {
+    border-color: var(--color-void);
+    color: var(--color-void);
+}
+
+.type-btn[data-type="power"].active {
+    border-color: var(--color-power);
+    color: var(--color-power);
+}
+
+.type-btn[data-type="blind_spot"].active {
+    border-color: var(--color-blind-spot);
+    color: var(--color-blind-spot);
+}
+
+/* Primary Button */
+.btn-primary {
+    width: 100%;
+    padding: var(--space-md);
+    background: var(--color-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--color-bg);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-primary:hover {
+    background: var(--color-primary-hover);
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Secondary Button */
+.btn-secondary {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-bg-input);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-danger {
+    border-color: var(--color-error);
+    color: var(--color-error);
+}
+
+.btn-danger:hover {
+    background: rgba(255, 107, 107, 0.2);
+}
+
+/* Settings */
+.settings-section h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.settings-actions {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.history-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Result Panel */
+.result-panel {
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    background: rgba(0, 217, 255, 0.1);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-primary);
+}
+
+.result-panel h3 {
+    font-size: 0.875rem;
+    color: var(--color-primary);
+    margin-bottom: var(--space-sm);
+}
+
+.result-panel .coords {
+    font-family: monospace;
+    font-size: 1rem;
+    margin-bottom: var(--space-sm);
+}
+
+.result-panel .z-score {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.result-actions {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+}
+
+.result-actions button {
+    flex: 1;
+    padding: var(--space-sm);
+    background: var(--color-bg-input);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.result-actions button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* History List */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.history-item {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-bg-input);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.history-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.history-item .coords {
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.history-item .meta {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--color-text-muted);
+    padding: var(--space-xl);
+}
+
+/* Loading State */
+.loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid var(--color-primary);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Map Markers */
+.marker-attractor {
+    background: var(--color-attractor);
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.marker-void {
+    background: var(--color-void);
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.marker-power {
+    background: var(--color-power);
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.marker-blind-spot {
+    background: var(--color-blind-spot);
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.marker-center {
+    background: white;
+    border: 2px solid var(--color-primary);
+    border-radius: 50%;
+    width: 12px;
+    height: 12px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #app {
+        flex-direction: column-reverse;
+    }
+
+    .panel {
+        width: 100%;
+        height: auto;
+        max-height: 50vh;
+    }
+
+    #map {
+        height: 50vh;
+    }
+}

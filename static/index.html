@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>q-explore</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="anonymous">
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="css/vars.css">
+    <link rel="stylesheet" href="css/helpers.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Map Container -->
+        <div id="map"></div>
+
+        <!-- Control Panel -->
+        <div id="panel" class="panel">
+            <header class="panel-header">
+                <h1>q-explore</h1>
+                <nav class="tabs">
+                    <button class="tab active" data-tab="generate">Generate</button>
+                    <button class="tab" data-tab="history">History</button>
+                    <button class="tab" data-tab="settings">Settings</button>
+                </nav>
+            </header>
+
+            <!-- Generate Tab -->
+            <div id="generate-tab" class="tab-content active">
+                <div class="form-group">
+                    <label for="location-input">Location</label>
+                    <div class="input-group">
+                        <input type="text" id="location-input" placeholder="Search or right-click map...">
+                        <button id="here-btn" title="Use my location">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <circle cx="12" cy="12" r="3"/>
+                                <line x1="12" y1="2" x2="12" y2="6"/>
+                                <line x1="12" y1="18" x2="12" y2="22"/>
+                                <line x1="2" y1="12" x2="6" y2="12"/>
+                                <line x1="18" y1="12" x2="22" y2="12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="coords-display">
+                        <span id="lat-display">--</span>, <span id="lng-display">--</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="radius-input">Radius (<span class="unit-label" data-metric="meters" data-imperial="miles">meters</span>)</label>
+                    <input type="number" id="radius-input" class="unit-value" data-metric="meters" data-imperial="miles" value="3000" min="100" max="50000">
+                </div>
+
+                <div class="form-group">
+                    <label for="mode-select">Mode</label>
+                    <select id="mode-select">
+                        <option value="standard">Standard</option>
+                        <option value="flower_power">Flower Power (7 circles)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="backend-select">Backend</label>
+                    <select id="backend-select">
+                        <option value="pseudo">Pseudo (Testing)</option>
+                        <option value="anu">ANU QRNG</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Anomaly Type</label>
+                    <div class="type-buttons">
+                        <button class="type-btn active" data-type="attractor">Attractor</button>
+                        <button class="type-btn" data-type="void">Void</button>
+                        <button class="type-btn" data-type="power">Power</button>
+                        <button class="type-btn" data-type="blind_spot">Blind Spot</button>
+                    </div>
+                </div>
+
+                <button id="generate-btn" class="btn-primary">Generate</button>
+
+                <div id="result-panel" class="result-panel hidden">
+                    <h3>Result</h3>
+                    <div id="result-content"></div>
+                    <div class="result-actions">
+                        <button id="open-map-btn">Open in Maps</button>
+                        <button id="copy-coords-btn">Copy Coords</button>
+                        <button id="share-btn" onclick="handleShareClick()">Share</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div id="history-tab" class="tab-content">
+                <div id="history-list" class="history-list">
+                    <p class="empty-state">No history yet. Generate some coordinates!</p>
+                </div>
+                <div class="history-actions mt-md">
+                    <button class="btn-secondary" onclick="clearHistory()">Clear History</button>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="tab-content">
+                <div class="form-group">
+                    <label for="unit-select">Units</label>
+                    <select id="unit-select" onchange="handleUnitChange()">
+                        <option value="metric">Metric (meters)</option>
+                        <option value="imperial">Freedom Units (miles)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="default-radius">Default Radius (<span class="unit-label" data-metric="meters" data-imperial="miles">meters</span>)</label>
+                    <input type="number" id="default-radius" class="unit-value" data-metric="meters" data-imperial="miles" data-default-meters="3000" value="3000">
+                </div>
+                <div class="form-group">
+                    <label for="default-backend">Default Backend</label>
+                    <select id="default-backend">
+                        <option value="pseudo">Pseudo</option>
+                        <option value="anu">ANU QRNG</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="map-provider">Map Provider</label>
+                    <select id="map-provider">
+                        <option value="google">Google Maps</option>
+                        <option value="openstreetmap">OpenStreetMap</option>
+                        <option value="apple">Apple Maps</option>
+                    </select>
+                </div>
+
+                <div class="settings-section mt-md">
+                    <h3 class="text-muted mb-sm">Export / Import</h3>
+                    <div class="settings-actions">
+                        <button class="btn-secondary" onclick="exportHistory()">Export JSON</button>
+                        <button class="btn-secondary" onclick="exportHistoryGpx()">Export GPX</button>
+                        <button class="btn-secondary" onclick="importHistory()">Import</button>
+                    </div>
+                </div>
+
+                <div class="settings-section mt-md">
+                    <h3 class="text-muted mb-sm">Reset</h3>
+                    <button class="btn-secondary btn-danger" onclick="resetSettings()">Reset Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin="anonymous"></script>
+
+    <!-- App JS -->
+    <script src="js/main.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/generate.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/settings.js"></script>
+</body>
+</html>

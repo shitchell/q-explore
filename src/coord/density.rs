@@ -3,6 +3,7 @@
 //! Divides a circular area into a grid and counts points per cell,
 //! then calculates z-scores for anomaly detection.
 
+use crate::constants::geo::METERS_PER_DEGREE_LAT;
 use crate::coord::Coordinates;
 use std::f64::consts::PI;
 
@@ -65,13 +66,12 @@ impl DensityGrid {
 
     /// Add points to the grid
     pub fn add_points(&mut self, points: &[Coordinates]) {
-        const METERS_PER_DEG_LAT: f64 = 111_320.0;
-        let meters_per_deg_lng = METERS_PER_DEG_LAT * (self.center.lat * PI / 180.0).cos();
+        let meters_per_deg_lng = METERS_PER_DEGREE_LAT * (self.center.lat * PI / 180.0).cos();
 
         for point in points {
             // Convert to meters offset from center
             let dx_meters = (point.lng - self.center.lng) * meters_per_deg_lng;
-            let dy_meters = (point.lat - self.center.lat) * METERS_PER_DEG_LAT;
+            let dy_meters = (point.lat - self.center.lat) * METERS_PER_DEGREE_LAT;
 
             // Convert to grid cell
             let col = ((dx_meters + self.radius) / self.cell_size) as isize;
@@ -131,15 +131,14 @@ impl DensityGrid {
 
     /// Convert a grid cell back to coordinates (center of cell)
     pub fn cell_to_coords(&self, row: usize, col: usize) -> Coordinates {
-        const METERS_PER_DEG_LAT: f64 = 111_320.0;
-        let meters_per_deg_lng = METERS_PER_DEG_LAT * (self.center.lat * PI / 180.0).cos();
+        let meters_per_deg_lng = METERS_PER_DEGREE_LAT * (self.center.lat * PI / 180.0).cos();
 
         // Cell center in grid space
         let cell_center_x = (col as f64 + 0.5) * self.cell_size - self.radius;
         let cell_center_y = (row as f64 + 0.5) * self.cell_size - self.radius;
 
         // Convert to lat/lng
-        let lat = self.center.lat + cell_center_y / METERS_PER_DEG_LAT;
+        let lat = self.center.lat + cell_center_y / METERS_PER_DEGREE_LAT;
         let lng = self.center.lng + cell_center_x / meters_per_deg_lng;
 
         Coordinates::new(lat, lng)

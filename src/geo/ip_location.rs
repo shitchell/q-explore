@@ -2,16 +2,14 @@
 //!
 //! Uses ip-api.com for IP geolocation with file-based caching.
 
+use crate::constants::api::IP_API_URL;
+use crate::constants::cache::{IP_LOCATION_CACHE_FILE, IP_LOCATION_TTL_SECS};
 use crate::error::{Error, Result};
 use crate::geo::GeoLocation;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
-
-const IP_API_URL: &str = "http://ip-api.com/json";
-const CACHE_DURATION_SECS: u64 = 3600; // 1 hour
-const CACHE_FILE_NAME: &str = "ip_location_cache.json";
 
 /// IP location service with caching
 #[derive(Debug)]
@@ -43,7 +41,7 @@ impl IpLocator {
     /// Create a new IP locator with default cache path
     pub fn new() -> Self {
         let cache_path = dirs::cache_dir()
-            .map(|p| p.join("q-explore").join(CACHE_FILE_NAME));
+            .map(|p| p.join("q-explore").join(IP_LOCATION_CACHE_FILE));
 
         Self {
             client: reqwest::Client::new(),
@@ -145,7 +143,7 @@ impl IpLocator {
             .ok()?
             .as_secs();
 
-        if now - cached.timestamp < CACHE_DURATION_SECS {
+        if now - cached.timestamp < IP_LOCATION_TTL_SECS {
             Some(cached.location)
         } else {
             None
@@ -187,7 +185,7 @@ impl IpLocator {
 
     /// Get cache duration
     pub fn cache_duration() -> Duration {
-        Duration::from_secs(CACHE_DURATION_SECS)
+        Duration::from_secs(IP_LOCATION_TTL_SECS)
     }
 }
 

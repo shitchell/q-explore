@@ -142,6 +142,14 @@ async fn generate_handler(
         });
     }
 
+    // Validate grid resolution
+    if req.grid_resolution == 0 {
+        return Err(ApiError {
+            error: "Grid resolution must be greater than 0".to_string(),
+            code: "INVALID_GRID_RESOLUTION".to_string(),
+        });
+    }
+
     // Get backend with API key if configured
     let backend_name = match &req.backend {
         Some(name) => name.clone(),

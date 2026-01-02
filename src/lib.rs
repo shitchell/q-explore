@@ -32,6 +32,7 @@
 
 pub mod cli;
 pub mod config;
+pub mod constants;
 pub mod coord;
 pub mod entropy;
 pub mod error;

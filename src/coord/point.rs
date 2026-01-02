@@ -3,13 +3,11 @@
 //! Generates random points uniformly distributed within a spherical cap.
 //! Uses true spherical geometry for accuracy at all latitudes, including poles.
 
+use crate::constants::geo::EARTH_RADIUS_METERS;
 use crate::coord::Coordinates;
 use crate::error::Result;
 use crate::qrng::QrngBackend;
 use std::f64::consts::PI;
-
-/// Earth radius in meters (mean radius)
-const EARTH_RADIUS_METERS: f64 = 6_371_000.0;
 
 /// Generate a single random point uniformly distributed within a spherical cap
 ///

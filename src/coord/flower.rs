@@ -3,6 +3,7 @@
 //! Generates 7 overlapping circles in a flower pattern (1 center + 6 petals)
 //! and finds the strongest anomalies across all circles.
 
+use crate::constants::geo::METERS_PER_DEGREE_LAT;
 use crate::coord::anomaly::{analyze_circle, find_all_winners, CircleResults, DEFAULT_POINT_COUNT};
 use crate::coord::density::DEFAULT_GRID_RESOLUTION;
 use crate::coord::{AnomalyType, Coordinates, GenerationMode, Point};
@@ -219,15 +220,14 @@ fn generate_flower_power(
 /// Petals are arranged in a hexagonal pattern around the center,
 /// each offset by `offset_distance` at 60-degree intervals.
 fn calculate_petal_centers(center: Coordinates, offset_distance: f64) -> [Coordinates; 6] {
-    const METERS_PER_DEG_LAT: f64 = 111_320.0;
-    let meters_per_deg_lng = METERS_PER_DEG_LAT * (center.lat * PI / 180.0).cos();
+    let meters_per_deg_lng = METERS_PER_DEGREE_LAT * (center.lat * PI / 180.0).cos();
 
     let mut petals = [center; 6];
 
     for i in 0..6 {
         let angle = (i as f64) * PI / 3.0; // 60 degrees each
 
-        let delta_lat = (offset_distance * angle.cos()) / METERS_PER_DEG_LAT;
+        let delta_lat = (offset_distance * angle.cos()) / METERS_PER_DEGREE_LAT;
         let delta_lng = (offset_distance * angle.sin()) / meters_per_deg_lng;
 
         petals[i] = Coordinates::new(center.lat + delta_lat, center.lng + delta_lng);

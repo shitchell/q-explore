@@ -10,14 +10,13 @@
 //! Both tiers support hex16 format with size=10 for maximum throughput:
 //! 1024 values × 20 bytes = 20KB per request.
 
+use crate::constants::api::{ANU_FREE_URL, ANU_PAID_URL};
 use crate::error::{Error, Result};
 use crate::qrng::QrngBackend;
 use serde::Deserialize;
 use std::sync::mpsc;
 use std::thread;
 
-const ANU_FREE_URL: &str = "https://qrng.anu.edu.au/API/jsonI.php";
-const ANU_PAID_URL: &str = "https://api.quantumnumbers.anu.edu.au";
 const MAX_ARRAY_LENGTH: usize = 1024; // Maximum array length per request
 
 // hex16 with size=10 gives 40 hex chars = 20 bytes per element
@@ -122,8 +121,14 @@ impl AnuBackend {
                 let mut client_builder = reqwest::blocking::Client::builder()
                     .timeout(std::time::Duration::from_secs(30));
 
-                // Free tier has an expired SSL cert, so we need to disable verification
+                // SECURITY WARNING: Free tier API has expired SSL cert.
+                // This disables certificate verification, making MitM attacks possible.
+                // For production use, upgrade to paid tier or use another backend.
                 if is_free_tier {
+                    eprintln!(
+                        "Warning: ANU free tier has expired SSL cert - verification disabled. \
+                         Consider using paid tier for production."
+                    );
                     client_builder = client_builder.danger_accept_invalid_certs(true);
                 }
 

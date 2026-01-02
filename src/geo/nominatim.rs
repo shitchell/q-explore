@@ -3,11 +3,11 @@
 //! Uses the free Nominatim API for geocoding.
 //! Rate limit: 1 request per second (enforced by User-Agent requirement)
 
+use crate::constants::api::NOMINATIM_URL;
 use crate::error::{Error, Result};
 use crate::geo::{GeoBackend, GeoLocation};
 use serde::Deserialize;
 
-const NOMINATIM_BASE_URL: &str = "https://nominatim.openstreetmap.org";
 const USER_AGENT: &str = "q-explore/0.1.0";
 
 /// Nominatim geocoding backend
@@ -57,7 +57,7 @@ impl GeoBackend for NominatimBackend {
     async fn geocode(&self, query: &str) -> Result<Option<GeoLocation>> {
         let url = format!(
             "{}/search?q={}&format=json&limit=1",
-            NOMINATIM_BASE_URL,
+            NOMINATIM_URL,
             urlencoding::encode(query)
         );
 
@@ -94,7 +94,7 @@ impl GeoBackend for NominatimBackend {
     async fn reverse_geocode(&self, lat: f64, lng: f64) -> Result<Option<GeoLocation>> {
         let url = format!(
             "{}/reverse?lat={}&lon={}&format=json",
-            NOMINATIM_BASE_URL, lat, lng
+            NOMINATIM_URL, lat, lng
         );
 
         let response = self.client

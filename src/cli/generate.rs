@@ -167,9 +167,16 @@ pub async fn run(args: GenerateArgs) -> Result<()> {
 
     // Save to history (unless disabled)
     if !args.no_history {
-        if let Ok(mut history) = History::load() {
-            history.add_response(response.clone());
-            let _ = history.save();
+        match History::load() {
+            Ok(mut history) => {
+                history.add_response(response.clone());
+                if let Err(e) = history.save() {
+                    eprintln!("Warning: Failed to save history: {}", e);
+                }
+            }
+            Err(e) => {
+                eprintln!("Warning: Could not load history: {}", e);
+            }
         }
     }
 

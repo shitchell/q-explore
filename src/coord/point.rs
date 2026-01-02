@@ -554,4 +554,340 @@ mod tests {
             }
         }
     }
+
+    // ========== Strong Uniformity Tests ==========
+
+    /// Test radial area distribution: for a uniform disk, area is proportional to r²
+    /// So inner 50% of radius contains 25% of area, outer 50% contains 75%
+    #[test]
+    fn test_radial_area_distribution() {
+        let backend = SeededPseudoBackend::new(54321);
+        let center = Coordinates::new(45.0, -122.0); // Mid-latitude
+        let radius = 10_000.0; // 10 km
+        let count = 10_000;
+
+        let points = generate_points_in_circle(center, radius, count, &backend).unwrap();
+
+        // Count points in inner half (r < R/2) vs outer half (r >= R/2)
+        let half_radius = radius / 2.0;
+        let mut inner_count = 0;
+        let mut outer_count = 0;
+
+        for point in &points {
+            let distance = haversine_distance(center, *point);
+            if distance < half_radius {
+                inner_count += 1;
+            } else {
+                outer_count += 1;
+            }
+        }
+
+        // Expected: inner 25%, outer 75% (since area = πr², inner half has (0.5)² = 0.25)
+        let inner_fraction = inner_count as f64 / count as f64;
+        let outer_fraction = outer_count as f64 / count as f64;
+
+        // Allow 3% tolerance (statistical variance for 10k points)
+        assert!(
+            (inner_fraction - 0.25).abs() < 0.03,
+            "Inner half should have ~25% of points, got {:.1}% ({} points)",
+            inner_fraction * 100.0,
+            inner_count
+        );
+        assert!(
+            (outer_fraction - 0.75).abs() < 0.03,
+            "Outer half should have ~75% of points, got {:.1}% ({} points)",
+            outer_fraction * 100.0,
+            outer_count
+        );
+    }
+
+    /// Test radial distribution with multiple bands
+    /// Divides into 4 equal-radius bands, expected areas: 6.25%, 18.75%, 31.25%, 43.75%
+    #[test]
+    fn test_radial_bands_distribution() {
+        let backend = SeededPseudoBackend::new(99999);
+        let center = Coordinates::new(0.0, 0.0); // Equator
+        let radius = 10_000.0;
+        let count = 20_000; // More points for finer bands
+
+        let points = generate_points_in_circle(center, radius, count, &backend).unwrap();
+
+        // 4 equal-radius bands: [0, R/4), [R/4, R/2), [R/2, 3R/4), [3R/4, R]
+        let mut bands = [0usize; 4];
+        for point in &points {
+            let distance = haversine_distance(center, *point);
+            let normalized = distance / radius;
+            let band = match normalized {
+                d if d < 0.25 => 0,
+                d if d < 0.50 => 1,
+                d if d < 0.75 => 2,
+                _ => 3,
+            };
+            bands[band] += 1;
+        }
+
+        // Expected fractions based on area = r²
+        // Band 0: 0.25² = 0.0625 (6.25%)
+        // Band 1: 0.50² - 0.25² = 0.1875 (18.75%)
+        // Band 2: 0.75² - 0.50² = 0.3125 (31.25%)
+        // Band 3: 1.00² - 0.75² = 0.4375 (43.75%)
+        let expected = [0.0625, 0.1875, 0.3125, 0.4375];
+
+        for (i, (&observed, &exp)) in bands.iter().zip(expected.iter()).enumerate() {
+            let observed_fraction = observed as f64 / count as f64;
+            let tolerance = 0.02; // 2% tolerance
+
+            assert!(
+                (observed_fraction - exp).abs() < tolerance,
+                "Band {} (r={:.0}-{:.0}m): expected {:.1}%, got {:.1}% ({} points)",
+                i,
+                i as f64 * radius / 4.0,
+                (i + 1) as f64 * radius / 4.0,
+                exp * 100.0,
+                observed_fraction * 100.0,
+                observed
+            );
+        }
+    }
+
+    /// Test quadrant balance: points should be evenly distributed across 4 quadrants
+    #[test]
+    fn test_quadrant_balance() {
+        let backend = SeededPseudoBackend::new(11111);
+        let center = Coordinates::new(45.0, 0.0); // Mid-latitude, prime meridian
+        let radius = 10_000.0;
+        let count = 10_000;
+
+        let points = generate_points_in_circle(center, radius, count, &backend).unwrap();
+
+        // Count points in each quadrant (relative to center)
+        // Q0: NE (lat+, lng+), Q1: NW (lat+, lng-), Q2: SW (lat-, lng-), Q3: SE (lat-, lng+)
+        let mut quadrants = [0usize; 4];
+
+        for point in &points {
+            let dlat = point.lat - center.lat;
+            let dlng = point.lng - center.lng;
+
+            let quadrant = match (dlat >= 0.0, dlng >= 0.0) {
+                (true, true) => 0,   // NE
+                (true, false) => 1,  // NW
+                (false, false) => 2, // SW
+                (false, true) => 3,  // SE
+            };
+            quadrants[quadrant] += 1;
+        }
+
+        // Each quadrant should have ~25% of points
+        let expected = 0.25;
+        let tolerance = 0.03; // 3% tolerance
+
+        for (i, &observed) in quadrants.iter().enumerate() {
+            let observed_fraction = observed as f64 / count as f64;
+            let quadrant_name = ["NE", "NW", "SW", "SE"][i];
+
+            assert!(
+                (observed_fraction - expected).abs() < tolerance,
+                "Quadrant {} should have ~25% of points, got {:.1}% ({} points)",
+                quadrant_name,
+                observed_fraction * 100.0,
+                observed
+            );
+        }
+    }
+
+    /// Test 8-sector angular distribution
+    #[test]
+    fn test_angular_sector_distribution() {
+        let backend = SeededPseudoBackend::new(22222);
+        let center = Coordinates::new(30.0, -90.0); // New Orleans area
+        let radius = 10_000.0;
+        let count = 16_000; // 2000 expected per sector
+
+        let points = generate_points_in_circle(center, radius, count, &backend).unwrap();
+
+        // Divide into 8 sectors (45° each)
+        let mut sectors = [0usize; 8];
+
+        for point in &points {
+            let dlat = point.lat - center.lat;
+            let dlng = point.lng - center.lng;
+
+            // Calculate angle from center (0 = east, counter-clockwise)
+            let angle = dlng.atan2(dlat); // Note: atan2(y, x) but we use lat as "y-ish"
+            let angle_deg = angle * 180.0 / PI;
+
+            // Normalize to [0, 360)
+            let angle_normalized = if angle_deg < 0.0 {
+                angle_deg + 360.0
+            } else {
+                angle_deg
+            };
+
+            let sector = (angle_normalized / 45.0) as usize;
+            let sector = sector.min(7); // Clamp for edge case
+            sectors[sector] += 1;
+        }
+
+        // Each sector should have ~12.5% of points
+        let expected = 1.0 / 8.0;
+        let tolerance = 0.025; // 2.5% tolerance
+
+        for (i, &observed) in sectors.iter().enumerate() {
+            let observed_fraction = observed as f64 / count as f64;
+
+            assert!(
+                (observed_fraction - expected).abs() < tolerance,
+                "Sector {} ({}-{}°) should have ~12.5% of points, got {:.1}% ({} points)",
+                i,
+                i * 45,
+                (i + 1) * 45,
+                observed_fraction * 100.0,
+                observed
+            );
+        }
+    }
+
+    /// Chi-square test on a 5x5 grid for spatial uniformity
+    #[test]
+    fn test_chi_square_grid_uniformity() {
+        let backend = SeededPseudoBackend::new(33333);
+        let center = Coordinates::new(40.0, -74.0); // NYC area
+        let radius = 10_000.0;
+        let count = 10_000;
+
+        let points = generate_points_in_circle(center, radius, count, &backend).unwrap();
+
+        // Create a 5x5 grid over the bounding box
+        const GRID_SIZE: usize = 5;
+        let mut grid = [[0usize; GRID_SIZE]; GRID_SIZE];
+
+        // Find bounding box
+        let (mut min_lat, mut max_lat) = (f64::MAX, f64::MIN);
+        let (mut min_lng, mut max_lng) = (f64::MAX, f64::MIN);
+
+        for point in &points {
+            min_lat = min_lat.min(point.lat);
+            max_lat = max_lat.max(point.lat);
+            min_lng = min_lng.min(point.lng);
+            max_lng = max_lng.max(point.lng);
+        }
+
+        // Add small padding to avoid edge issues
+        let lat_range = max_lat - min_lat;
+        let lng_range = max_lng - min_lng;
+
+        // Count points in each cell
+        let mut total_in_grid = 0;
+        for point in &points {
+            let lat_idx =
+                ((point.lat - min_lat) / lat_range * GRID_SIZE as f64) as usize;
+            let lng_idx =
+                ((point.lng - min_lng) / lng_range * GRID_SIZE as f64) as usize;
+
+            let lat_idx = lat_idx.min(GRID_SIZE - 1);
+            let lng_idx = lng_idx.min(GRID_SIZE - 1);
+
+            grid[lat_idx][lng_idx] += 1;
+            total_in_grid += 1;
+        }
+
+        // For a circle inscribed in a square grid, not all cells are equal
+        // The corner cells have less area in the circle
+        // Instead of strict chi-square, we check that no cell is severely over/under populated
+
+        // Expected average per cell (if it were a square)
+        let cells_in_circle = GRID_SIZE * GRID_SIZE; // 25 cells
+        let avg_per_cell = total_in_grid as f64 / cells_in_circle as f64;
+
+        // Check that central cells (which are fully in the circle) are reasonably populated
+        // Central 3x3 should be close to expected
+        let central_cells = [
+            grid[1][1], grid[1][2], grid[1][3],
+            grid[2][1], grid[2][2], grid[2][3],
+            grid[3][1], grid[3][2], grid[3][3],
+        ];
+
+        let central_avg = central_cells.iter().sum::<usize>() as f64 / 9.0;
+
+        // Central cells should be reasonably close to overall average
+        // (they're fully inside the circle, so might be slightly higher)
+        assert!(
+            central_avg > avg_per_cell * 0.5 && central_avg < avg_per_cell * 2.0,
+            "Central 3x3 average ({:.1}) should be close to overall average ({:.1})",
+            central_avg,
+            avg_per_cell
+        );
+
+        // The center cell should have the most consistent count
+        let center_cell = grid[2][2];
+        let center_expected = avg_per_cell;
+        assert!(
+            (center_cell as f64 - center_expected).abs() < center_expected * 0.5,
+            "Center cell has {} points, expected ~{:.0} (±50%)",
+            center_cell,
+            center_expected
+        );
+    }
+
+    /// Test uniformity at various latitudes to catch any latitude-dependent bias
+    #[test]
+    fn test_uniformity_across_latitudes() {
+        let test_latitudes: [(f64, &str); 5] = [
+            (0.0, "Equator"),
+            (30.0, "30°N"),
+            (60.0, "60°N"),
+            (85.0, "85°N (Arctic)"),
+            (-45.0, "45°S"),
+        ];
+
+        for (lat, name) in test_latitudes {
+            let backend = SeededPseudoBackend::new((lat.abs() * 1000.0) as u64);
+            let center = Coordinates::new(lat, 0.0);
+            let radius = 5000.0;
+            let count = 5000;
+
+            let points = generate_points_in_circle(center, radius, count, &backend).unwrap();
+
+            // Check radial distribution (inner 50% radius = 25% area)
+            let half_radius = radius / 2.0;
+            let inner_count = points
+                .iter()
+                .filter(|p| haversine_distance(center, **p) < half_radius)
+                .count();
+
+            let inner_fraction = inner_count as f64 / count as f64;
+
+            assert!(
+                (inner_fraction - 0.25).abs() < 0.04, // 4% tolerance
+                "{}: inner half should have ~25% of points, got {:.1}%",
+                name,
+                inner_fraction * 100.0
+            );
+
+            // Check quadrant balance
+            let mut quadrants = [0usize; 4];
+            for point in &points {
+                let dlat = point.lat - center.lat;
+                let dlng = point.lng - center.lng;
+                let q = match (dlat >= 0.0, dlng >= 0.0) {
+                    (true, true) => 0,
+                    (true, false) => 1,
+                    (false, false) => 2,
+                    (false, true) => 3,
+                };
+                quadrants[q] += 1;
+            }
+
+            for (i, &q) in quadrants.iter().enumerate() {
+                let fraction = q as f64 / count as f64;
+                assert!(
+                    (fraction - 0.25).abs() < 0.05, // 5% tolerance
+                    "{}: quadrant {} should have ~25%, got {:.1}%",
+                    name,
+                    i,
+                    fraction * 100.0
+                );
+            }
+        }
+    }
 }

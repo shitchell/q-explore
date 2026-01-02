@@ -9,7 +9,7 @@ use crate::error::Error;
 use crate::format::available_formats;
 use crate::geo::{get_ip_locator, GeoLocation};
 use crate::history::{History, HistoryEntry};
-use crate::qrng::{available_backends, BackendInfo};
+use crate::qrng::{available_backends, get_backend_with_key, BackendInfo};
 use crate::server::state::AppState;
 
 use axum::{
@@ -142,12 +142,18 @@ async fn generate_handler(
         });
     }
 
-    // Get backend
+    // Get backend with API key if configured
     let backend_name = match &req.backend {
         Some(name) => name.clone(),
         None => state.backend_name().await,
     };
-    let backend = crate::qrng::get_backend(&backend_name);
+    let config = state.config.read().await;
+    let api_key = if backend_name == "anu" && !config.api_keys.anu.is_empty() {
+        Some(config.api_keys.anu.as_str())
+    } else {
+        None
+    };
+    let backend = get_backend_with_key(&backend_name, api_key);
 
     // Generate
     let response = generate(

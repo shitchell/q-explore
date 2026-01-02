@@ -99,11 +99,19 @@ impl AnuBackend {
 
         // Run the HTTP request in a separate thread to avoid tokio runtime conflicts
         let (tx, rx) = mpsc::channel();
+        let is_free_tier = api_key.is_none();
 
         thread::spawn(move || {
             let result = (|| -> Result<Vec<u8>> {
-                let client = reqwest::blocking::Client::builder()
-                    .timeout(std::time::Duration::from_secs(30))
+                let mut client_builder = reqwest::blocking::Client::builder()
+                    .timeout(std::time::Duration::from_secs(30));
+
+                // Free tier has an expired SSL cert, so we need to disable verification
+                if is_free_tier {
+                    client_builder = client_builder.danger_accept_invalid_certs(true);
+                }
+
+                let client = client_builder
                     .build()
                     .map_err(|e| Error::Qrng(format!("Failed to build HTTP client: {}", e)))?;
 

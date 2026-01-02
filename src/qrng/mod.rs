@@ -112,3 +112,82 @@ pub fn available_backends() -> Vec<BackendInfo> {
         },
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test that a backend produces uniform distribution across 25 buckets (0-24).
+    ///
+    /// Uses chi-square test with 1000 samples. Expected count per bucket = 40.
+    /// For 24 degrees of freedom at p=0.01, critical value is ~42.98.
+    fn test_uniform_distribution_for_backend(backend: &dyn QrngBackend, name: &str) {
+        const NUM_BUCKETS: usize = 25;
+        const NUM_SAMPLES: usize = 1000;
+        const EXPECTED_PER_BUCKET: f64 = NUM_SAMPLES as f64 / NUM_BUCKETS as f64; // 40.0
+
+        // Chi-square critical value for 24 degrees of freedom at p=0.01
+        // If chi-square > this, distribution is significantly non-uniform
+        const CHI_SQUARE_CRITICAL: f64 = 42.98;
+
+        // Generate random floats and bucket them into 0-24
+        let floats = backend.floats(NUM_SAMPLES).unwrap();
+        let mut buckets = [0usize; NUM_BUCKETS];
+
+        for f in &floats {
+            assert!(*f >= 0.0 && *f < 1.0, "{}: float {} out of range [0, 1)", name, f);
+            let bucket = (*f * NUM_BUCKETS as f64) as usize;
+            // Handle edge case where f == 1.0 exactly (shouldn't happen but be safe)
+            let bucket = bucket.min(NUM_BUCKETS - 1);
+            buckets[bucket] += 1;
+        }
+
+        // Calculate chi-square statistic
+        let chi_square: f64 = buckets
+            .iter()
+            .map(|&observed| {
+                let diff = observed as f64 - EXPECTED_PER_BUCKET;
+                (diff * diff) / EXPECTED_PER_BUCKET
+            })
+            .sum();
+
+        // Report bucket distribution for debugging
+        let min_bucket = *buckets.iter().min().unwrap();
+        let max_bucket = *buckets.iter().max().unwrap();
+
+        assert!(
+            chi_square < CHI_SQUARE_CRITICAL,
+            "{}: chi-square {:.2} exceeds critical value {:.2} (p=0.01)\n\
+             Bucket distribution: min={}, max={}, expected={}",
+            name,
+            chi_square,
+            CHI_SQUARE_CRITICAL,
+            min_bucket,
+            max_bucket,
+            EXPECTED_PER_BUCKET as usize
+        );
+    }
+
+    #[test]
+    fn test_pseudo_backend_uniform_distribution() {
+        let backend = pseudo::PseudoBackend::new();
+        test_uniform_distribution_for_backend(&backend, "PseudoBackend");
+    }
+
+    #[test]
+    fn test_seeded_pseudo_backend_uniform_distribution() {
+        let backend = pseudo::SeededPseudoBackend::new(12345);
+        test_uniform_distribution_for_backend(&backend, "SeededPseudoBackend");
+    }
+
+    #[test]
+    #[ignore = "Requires network access to ANU API"]
+    fn test_anu_backend_uniform_distribution() {
+        // Use API key from environment if available
+        let backend = match std::env::var("ANU_API_KEY") {
+            Ok(key) if !key.is_empty() => anu::AnuBackend::with_api_key(key),
+            _ => anu::AnuBackend::new(),
+        };
+        test_uniform_distribution_for_backend(&backend, "AnuBackend");
+    }
+}

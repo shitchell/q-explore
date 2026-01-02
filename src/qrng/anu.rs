@@ -4,10 +4,11 @@
 //! API documentation: https://qrng.anu.edu.au/contact/api-documentation/
 //!
 //! Two tiers:
-//! - Free: https://qrng.anu.edu.au/API/jsonI.php (rate limited)
+//! - Free: https://qrng.anu.edu.au/API/jsonI.php (rate limited, expired SSL cert)
 //! - Paid: https://api.quantumnumbers.anu.edu.au (requires API key)
 //!
-//! If an API key is provided, the paid endpoint is used automatically.
+//! Both tiers support hex16 format with size=10 for maximum throughput:
+//! 1024 values × 20 bytes = 20KB per request.
 
 use crate::error::{Error, Result};
 use crate::qrng::QrngBackend;
@@ -18,7 +19,11 @@ use std::thread;
 const ANU_FREE_URL: &str = "https://qrng.anu.edu.au/API/jsonI.php";
 const ANU_PAID_URL: &str = "https://api.quantumnumbers.anu.edu.au";
 const MAX_ARRAY_LENGTH: usize = 1024; // Maximum array length per request
-const BYTES_PER_REQUEST: usize = MAX_ARRAY_LENGTH * 2; // uint16 = 2 bytes each
+
+// hex16 with size=10 gives 40 hex chars = 20 bytes per element
+const HEX16_BLOCK_SIZE: usize = 10; // Max allowed by API
+const BYTES_PER_HEX16_ELEMENT: usize = HEX16_BLOCK_SIZE * 2; // 20 bytes (each block = 4 hex chars = 2 bytes)
+const BYTES_PER_REQUEST: usize = MAX_ARRAY_LENGTH * BYTES_PER_HEX16_ELEMENT; // 20,480 bytes
 
 /// ANU QRNG backend
 ///
@@ -36,18 +41,18 @@ pub enum AnuTier {
     Paid,
 }
 
-/// ANU API success response for uint16 type
+/// ANU API success response for hex16 format
 ///
-/// Example: `{"success": true, "type": "uint16", "length": "5", "data": [21059, 43612, 61306, 31682, 47054]}`
+/// Example: `{"success": true, "type": "hex16", "length": "5", "data": ["b580bb5ec3bd0d97d367...", ...]}`
 #[derive(Debug, Deserialize)]
 struct AnuResponse {
     success: bool,
     #[serde(default)]
-    data: Option<Vec<u16>>,
+    data: Option<Vec<String>>,
     #[allow(dead_code)]
     r#type: Option<String>,
     #[allow(dead_code)]
-    length: Option<String>,
+    length: Option<String>, // API returns this as a string
     /// Present on error responses: `{"success": false, "message": "..."}`
     #[serde(default)]
     message: Option<String>,
@@ -76,26 +81,33 @@ impl AnuBackend {
 
     /// Fetch random bytes from the ANU API
     ///
-    /// Uses uint16 type for 2x throughput (2048 bytes per request vs 1024).
+    /// Uses hex16 with size=10 for maximum throughput (20,480 bytes per request).
     /// Runs HTTP request in a separate thread to avoid tokio runtime conflicts.
     fn fetch_bytes(&self, count: usize) -> Result<Vec<u8>> {
-        // Calculate how many u16 values we need (each gives us 2 bytes)
-        // Request up to MAX_ARRAY_LENGTH u16 values
-        let u16_count = ((count + 1) / 2).min(MAX_ARRAY_LENGTH);
+        // Calculate how many hex16 elements we need (each gives us 20 bytes with size=10)
+        // Request up to MAX_ARRAY_LENGTH elements
+        let element_count = ((count + BYTES_PER_HEX16_ELEMENT - 1) / BYTES_PER_HEX16_ELEMENT)
+            .min(MAX_ARRAY_LENGTH);
 
         // Select endpoint based on whether we have an API key
         let (url, api_key) = match &self.api_key {
             Some(key) if !key.is_empty() => {
                 // Paid endpoint uses header auth
                 (
-                    format!("{}?length={}&type=uint16", ANU_PAID_URL, u16_count),
+                    format!(
+                        "{}?length={}&type=hex16&size={}",
+                        ANU_PAID_URL, element_count, HEX16_BLOCK_SIZE
+                    ),
                     Some(key.clone()),
                 )
             }
             _ => {
                 // Free endpoint, no auth needed
                 (
-                    format!("{}?length={}&type=uint16", ANU_FREE_URL, u16_count),
+                    format!(
+                        "{}?length={}&type=hex16&size={}",
+                        ANU_FREE_URL, element_count, HEX16_BLOCK_SIZE
+                    ),
                     None,
                 )
             }
@@ -148,15 +160,28 @@ impl AnuBackend {
                     return Err(Error::Qrng(format!("ANU API error: {}", msg)));
                 }
 
-                // Convert u16 values to bytes (little-endian)
-                let u16_data = anu_response
+                // Convert hex strings to bytes
+                // Each element is 40 hex chars = 20 bytes (with size=10)
+                let hex_data = anu_response
                     .data
                     .ok_or_else(|| Error::Qrng("ANU API returned no data".to_string()))?;
 
-                let bytes: Vec<u8> = u16_data
-                    .iter()
-                    .flat_map(|v| v.to_le_bytes())
-                    .collect();
+                let mut bytes = Vec::with_capacity(hex_data.len() * BYTES_PER_HEX16_ELEMENT);
+                for hex_str in hex_data {
+                    // Parse pairs of hex characters into bytes
+                    for i in (0..hex_str.len()).step_by(2) {
+                        if i + 2 <= hex_str.len() {
+                            let byte = u8::from_str_radix(&hex_str[i..i + 2], 16).map_err(|e| {
+                                Error::Qrng(format!(
+                                    "Failed to parse hex '{}': {}",
+                                    &hex_str[i..i + 2],
+                                    e
+                                ))
+                            })?;
+                            bytes.push(byte);
+                        }
+                    }
+                }
 
                 Ok(bytes)
             })();
@@ -190,7 +215,7 @@ impl QrngBackend for AnuBackend {
         }
 
         // For large requests, make multiple API calls
-        // Each call fetches up to BYTES_PER_REQUEST bytes (2048 with uint16)
+        // Each call fetches up to BYTES_PER_REQUEST bytes (20,480 with hex16 size=10)
         let mut result = Vec::with_capacity(count);
         let mut remaining = count;
 
@@ -266,12 +291,21 @@ mod tests {
     }
 
     // Integration tests - these actually call the ANU API
-    // They are disabled by default as they require network access
-    // and may be rate-limited
+    // Run with: cargo test qrng::anu -- --ignored
+    // Set ANU_API_KEY env var to use paid tier (avoids rate limiting)
+
+    /// Get backend with API key from environment if available
+    fn get_test_backend() -> AnuBackend {
+        match std::env::var("ANU_API_KEY") {
+            Ok(key) if !key.is_empty() => AnuBackend::with_api_key(key),
+            _ => AnuBackend::new(),
+        }
+    }
+
     #[test]
     #[ignore = "Requires network access to ANU API"]
     fn test_anu_fetch_bytes() {
-        let backend = AnuBackend::new();
+        let backend = get_test_backend();
         let bytes = backend.bytes(10).unwrap();
         assert_eq!(bytes.len(), 10);
     }
@@ -279,7 +313,7 @@ mod tests {
     #[test]
     #[ignore = "Requires network access to ANU API"]
     fn test_anu_fetch_floats() {
-        let backend = AnuBackend::new();
+        let backend = get_test_backend();
         let floats = backend.floats(10).unwrap();
         assert_eq!(floats.len(), 10);
         for f in &floats {
@@ -290,9 +324,9 @@ mod tests {
     #[test]
     #[ignore = "Requires network access to ANU API"]
     fn test_anu_large_request() {
-        let backend = AnuBackend::new();
-        // Request more than MAX_BLOCK_SIZE to test batching
-        let bytes = backend.bytes(2048).unwrap();
-        assert_eq!(bytes.len(), 2048);
+        let backend = get_test_backend();
+        // Request more than BYTES_PER_REQUEST (20,480) to test batching
+        let bytes = backend.bytes(25000).unwrap();
+        assert_eq!(bytes.len(), 25000);
     }
 }

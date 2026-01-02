@@ -9,7 +9,7 @@ use crate::error::Result;
 use crate::format::{get_formatter, available_formats};
 use crate::geo::{get_geocoder, get_ip_locator, GeoBackend};
 use crate::history::History;
-use crate::qrng::get_backend;
+use crate::qrng::get_backend_with_key;
 use clap::Args;
 use std::str::FromStr;
 
@@ -145,8 +145,13 @@ pub async fn run(args: GenerateArgs) -> Result<()> {
     let display_type = AnomalyType::from_str(&anomaly_type_str)
         .map_err(|e| crate::error::Error::Config(e))?;
 
-    // Get backend
-    let backend = get_backend(&backend_name);
+    // Get backend with API key if configured
+    let api_key = if backend_name == "anu" && !config.api_keys.anu.is_empty() {
+        Some(config.api_keys.anu.as_str())
+    } else {
+        None
+    };
+    let backend = get_backend_with_key(&backend_name, api_key);
 
     // Generate
     let response = generate(

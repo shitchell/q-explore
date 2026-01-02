@@ -3,7 +3,7 @@
 //! Holds configuration and shared resources for the HTTP server.
 
 use crate::config::Config;
-use crate::qrng::{get_backend, QrngBackend};
+use crate::qrng::{get_backend_with_key, QrngBackend};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -29,7 +29,16 @@ impl AppState {
     /// Get the current QRNG backend
     pub async fn get_backend(&self) -> Box<dyn QrngBackend> {
         let name = self.backend_name.read().await;
-        get_backend(&name)
+        let config = self.config.read().await;
+
+        // Get API key for ANU backend if configured
+        let api_key = if name.as_str() == "anu" && !config.api_keys.anu.is_empty() {
+            Some(config.api_keys.anu.as_str())
+        } else {
+            None
+        };
+
+        get_backend_with_key(&name, api_key)
     }
 
     /// Set the current QRNG backend

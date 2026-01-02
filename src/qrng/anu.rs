@@ -17,7 +17,8 @@ use std::thread;
 
 const ANU_FREE_URL: &str = "https://qrng.anu.edu.au/API/jsonI.php";
 const ANU_PAID_URL: &str = "https://api.quantumnumbers.anu.edu.au";
-const MAX_BLOCK_SIZE: usize = 1024; // Maximum bytes per request
+const MAX_ARRAY_LENGTH: usize = 1024; // Maximum array length per request
+const BYTES_PER_REQUEST: usize = MAX_ARRAY_LENGTH * 2; // uint16 = 2 bytes each
 
 /// ANU QRNG backend
 ///
@@ -35,14 +36,14 @@ pub enum AnuTier {
     Paid,
 }
 
-/// ANU API success response for uint8 type
+/// ANU API success response for uint16 type
 ///
-/// Example: `{"success": true, "type": "uint8", "length": "5", "data": [172, 216, 180, 138, 46]}`
+/// Example: `{"success": true, "type": "uint16", "length": "5", "data": [21059, 43612, 61306, 31682, 47054]}`
 #[derive(Debug, Deserialize)]
 struct AnuResponse {
     success: bool,
     #[serde(default)]
-    data: Option<Vec<u8>>,
+    data: Option<Vec<u16>>,
     #[allow(dead_code)]
     r#type: Option<String>,
     #[allow(dead_code)]
@@ -75,23 +76,26 @@ impl AnuBackend {
 
     /// Fetch random bytes from the ANU API
     ///
+    /// Uses uint16 type for 2x throughput (2048 bytes per request vs 1024).
     /// Runs HTTP request in a separate thread to avoid tokio runtime conflicts.
     fn fetch_bytes(&self, count: usize) -> Result<Vec<u8>> {
-        let count = count.min(MAX_BLOCK_SIZE);
+        // Calculate how many u16 values we need (each gives us 2 bytes)
+        // Request up to MAX_ARRAY_LENGTH u16 values
+        let u16_count = ((count + 1) / 2).min(MAX_ARRAY_LENGTH);
 
         // Select endpoint based on whether we have an API key
         let (url, api_key) = match &self.api_key {
             Some(key) if !key.is_empty() => {
                 // Paid endpoint uses header auth
                 (
-                    format!("{}?length={}&type=uint8", ANU_PAID_URL, count),
+                    format!("{}?length={}&type=uint16", ANU_PAID_URL, u16_count),
                     Some(key.clone()),
                 )
             }
             _ => {
                 // Free endpoint, no auth needed
                 (
-                    format!("{}?length={}&type=uint8", ANU_FREE_URL, count),
+                    format!("{}?length={}&type=uint16", ANU_FREE_URL, u16_count),
                     None,
                 )
             }
@@ -144,9 +148,17 @@ impl AnuBackend {
                     return Err(Error::Qrng(format!("ANU API error: {}", msg)));
                 }
 
-                anu_response
+                // Convert u16 values to bytes (little-endian)
+                let u16_data = anu_response
                     .data
-                    .ok_or_else(|| Error::Qrng("ANU API returned no data".to_string()))
+                    .ok_or_else(|| Error::Qrng("ANU API returned no data".to_string()))?;
+
+                let bytes: Vec<u8> = u16_data
+                    .iter()
+                    .flat_map(|v| v.to_le_bytes())
+                    .collect();
+
+                Ok(bytes)
             })();
 
             let _ = tx.send(result);
@@ -178,16 +190,19 @@ impl QrngBackend for AnuBackend {
         }
 
         // For large requests, make multiple API calls
+        // Each call fetches up to BYTES_PER_REQUEST bytes (2048 with uint16)
         let mut result = Vec::with_capacity(count);
         let mut remaining = count;
 
         while remaining > 0 {
-            let batch_size = remaining.min(MAX_BLOCK_SIZE);
+            let batch_size = remaining.min(BYTES_PER_REQUEST);
             let bytes = self.fetch_bytes(batch_size)?;
-            result.extend(bytes);
-            remaining = remaining.saturating_sub(batch_size);
+            result.extend(&bytes[..bytes.len().min(remaining)]);
+            remaining = remaining.saturating_sub(bytes.len());
         }
 
+        // Truncate to exact count requested (in case we got extra from u16 rounding)
+        result.truncate(count);
         Ok(result)
     }
 

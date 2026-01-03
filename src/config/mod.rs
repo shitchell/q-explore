@@ -51,6 +51,10 @@ pub struct DefaultsConfig {
     #[serde(default = "default_points")]
     pub points: usize,
 
+    /// Default grid resolution for density analysis
+    #[serde(default = "default_grid_resolution")]
+    pub grid_resolution: usize,
+
     /// Default output format
     #[serde(default = "default_format")]
     pub format: String,
@@ -118,6 +122,9 @@ fn default_radius() -> f64 {
 fn default_points() -> usize {
     DEFAULT_POINTS
 }
+fn default_grid_resolution() -> usize {
+    DEFAULT_GRID_RESOLUTION
+}
 fn default_format() -> String {
     DEFAULT_FORMAT.to_string()
 }
@@ -175,6 +182,7 @@ impl Default for DefaultsConfig {
             backend: default_backend(),
             radius: default_radius(),
             points: default_points(),
+            grid_resolution: default_grid_resolution(),
             format: default_format(),
             anomaly_type: default_type(),
             mode: default_mode(),
@@ -275,6 +283,7 @@ impl Config {
             ["defaults", "backend"] => Some(self.defaults.backend.clone()),
             ["defaults", "radius"] => Some(self.defaults.radius.to_string()),
             ["defaults", "points"] => Some(self.defaults.points.to_string()),
+            ["defaults", "grid_resolution"] => Some(self.defaults.grid_resolution.to_string()),
             ["defaults", "format"] => Some(self.defaults.format.clone()),
             ["defaults", "type"] => Some(self.defaults.anomaly_type.clone()),
             ["defaults", "mode"] => Some(self.defaults.mode.clone()),
@@ -314,6 +323,11 @@ impl Config {
             ["defaults", "points"] => {
                 self.defaults.points = value.parse().map_err(|_| {
                     Error::Config(format!("Invalid points value: {}", value))
+                })?;
+            }
+            ["defaults", "grid_resolution"] => {
+                self.defaults.grid_resolution = value.parse().map_err(|_| {
+                    Error::Config(format!("Invalid grid_resolution value: {}", value))
                 })?;
             }
             ["defaults", "format"] => {
@@ -363,11 +377,27 @@ impl Config {
     }
 
     /// List all available config keys
+    ///
+    /// Keys and their types:
+    /// - `defaults.backend`: String ("pseudo" | "anu")
+    /// - `defaults.radius`: f64 (meters, > 0)
+    /// - `defaults.points`: usize (number of points for analysis)
+    /// - `defaults.grid_resolution`: usize (grid cells per dimension, > 0)
+    /// - `defaults.format`: String ("json" | "text" | "gpx" | "url")
+    /// - `defaults.type`: String ("attractor" | "void" | "power" | "blind_spot")
+    /// - `defaults.mode`: String ("standard" | "flower_power")
+    /// - `server.host`: String (IP address)
+    /// - `server.port`: u16
+    /// - `server.shutdown_timeout_secs`: u64
+    /// - `location.default_here`: bool
+    /// - `url.default`: String (provider name)
+    /// - `api_keys.anu`: String
     pub fn available_keys() -> Vec<&'static str> {
         vec![
             "defaults.backend",
             "defaults.radius",
             "defaults.points",
+            "defaults.grid_resolution",
             "defaults.format",
             "defaults.type",
             "defaults.mode",

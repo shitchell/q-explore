@@ -88,6 +88,15 @@ impl Point {
             is_attractor: Some(is_attractor),
         }
     }
+
+    /// Format z-score for display, or empty string if none
+    ///
+    /// Returns " (z=X.XX)" if z_score is Some, otherwise ""
+    pub fn format_z_score(&self) -> String {
+        self.z_score
+            .map(|z| format!(" (z={:.2})", z))
+            .unwrap_or_default()
+    }
 }
 
 /// Generation mode

@@ -40,13 +40,9 @@ impl OutputFormatter for TextFormatter {
         output.push_str("Results:\n");
         for (anomaly_type, winner) in &response.winners {
             let point = &winner.result;
-            let z_info = point
-                .z_score
-                .map(|z| format!(" (z={:.2})", z))
-                .unwrap_or_default();
             output.push_str(&format!(
                 "  {}: ({:.6}, {:.6}){}\n",
-                anomaly_type, point.coords.lat, point.coords.lng, z_info
+                anomaly_type, point.coords.lat, point.coords.lng, point.format_z_score()
             ));
         }
 

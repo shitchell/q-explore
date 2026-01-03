@@ -36,5 +36,23 @@ pub enum Error {
     Geo(String),
 }
 
+impl Error {
+    /// Get the error code for API responses
+    pub fn error_code(&self) -> &'static str {
+        match self {
+            Error::InvalidCoordinates(_) => "INVALID_COORDINATES",
+            Error::InvalidRadius(_) => "INVALID_RADIUS",
+            Error::Qrng(_) => "QRNG_ERROR",
+            Error::Config(_) => "CONFIG_ERROR",
+            Error::Io(_) => "IO_ERROR",
+            Error::Http(_) => "HTTP_ERROR",
+            Error::Json(_) => "JSON_ERROR",
+            Error::Server(_) => "SERVER_ERROR",
+            Error::Geocoding(_) => "GEOCODING_ERROR",
+            Error::Geo(_) => "GEO_ERROR",
+        }
+    }
+}
+
 /// Result type alias for q-explore operations
 pub type Result<T> = std::result::Result<T, Error>;

@@ -111,15 +111,12 @@ fn show_entry(id: &str) -> Result<()> {
 
     println!("\nResults:");
     for (anomaly_type, winner) in &entry.response.winners {
-        let z_info = winner.result.z_score
-            .map(|z| format!(" (z={:.2})", z))
-            .unwrap_or_default();
         println!(
             "  {}: ({:.6}, {:.6}){}",
             anomaly_type,
             winner.result.coords.lat,
             winner.result.coords.lng,
-            z_info
+            winner.result.format_z_score()
         );
     }
 

@@ -11,6 +11,9 @@ pub const DEFAULT_RADIUS: f64 = 3000.0;
 /// Default number of points for density analysis
 pub const DEFAULT_POINTS: usize = 10_000;
 
+/// Default grid resolution for density analysis
+pub const DEFAULT_GRID_RESOLUTION: usize = 50;
+
 /// Default output format
 pub const DEFAULT_FORMAT: &str = "json";
 

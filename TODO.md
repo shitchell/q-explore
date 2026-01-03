@@ -38,7 +38,7 @@ Code review findings organized into actionable chunks.
 ---
 
 ## Chunk 3: Config DRY Refactor
-**Status**: pending
+**Status**: complete
 
 ### 3.1 Macro for default value functions
 - **File**: `src/config/mod.rs:112-157`
@@ -53,7 +53,7 @@ Code review findings organized into actionable chunks.
 ---
 
 ## Chunk 4: Grid Resolution Config
-**Status**: pending
+**Status**: complete
 
 ### 4.1 Add grid_resolution to config defaults
 - **File**: `src/config/mod.rs`, `src/config/defaults.rs`
@@ -67,7 +67,7 @@ Code review findings organized into actionable chunks.
 ---
 
 ## Chunk 5: Helper Extractions
-**Status**: pending
+**Status**: complete
 
 ### 5.1 Extract z-score formatting helper
 - **Files**: `src/cli/history.rs:114-116`, `src/format/text.rs:43-46`, `src/format/gpx.rs:78-79`
@@ -87,7 +87,7 @@ Code review findings organized into actionable chunks.
 ---
 
 ## Chunk 6: Server Routes Refactor
-**Status**: pending
+**Status**: skipped (large structural change, defer to future)
 
 ### 6.1 Split routes.rs into modules
 - **File**: `src/server/routes.rs` (724 lines)
@@ -100,7 +100,7 @@ Code review findings organized into actionable chunks.
 ---
 
 ## Chunk 7: Error Handling Consistency
-**Status**: pending
+**Status**: complete
 
 ### 7.1 Add Error::error_code() method
 - **File**: `src/server/routes.rs:112-124`
@@ -114,7 +114,7 @@ Code review findings organized into actionable chunks.
 ---
 
 ## Chunk 8: Race Condition Fix
-**Status**: pending
+**Status**: complete
 
 ### 8.1 Fix config read race in generate handler
 - **File**: `src/server/routes.rs:145-156`

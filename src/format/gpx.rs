@@ -6,6 +6,15 @@ use crate::coord::AnomalyType;
 use crate::error::Result;
 use crate::format::OutputFormatter;
 
+/// Capitalize the first character of a string (Unicode-safe)
+fn capitalize_first(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+    }
+}
+
 /// GPX formatter - outputs GPX waypoint file
 pub struct GpxFormatter;
 
@@ -61,18 +70,7 @@ impl OutputFormatter for GpxFormatter {
             gpx.push('\n');
 
             // Capitalize first letter of anomaly type
-            let name = format!("{}", anomaly_type);
-            let name = name
-                .chars()
-                .enumerate()
-                .map(|(i, c)| {
-                    if i == 0 {
-                        c.to_uppercase().next().unwrap_or(c)
-                    } else {
-                        c
-                    }
-                })
-                .collect::<String>();
+            let name = capitalize_first(&format!("{}", anomaly_type));
             gpx.push_str(&format!("    <name>{}</name>\n", name));
 
             if let Some(z) = point.z_score {

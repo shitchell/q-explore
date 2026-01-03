@@ -109,16 +109,9 @@ impl IntoResponse for ApiError {
 
 impl From<Error> for ApiError {
     fn from(err: Error) -> Self {
-        let code = match &err {
-            Error::InvalidCoordinates(_) => "INVALID_COORDINATES",
-            Error::InvalidRadius(_) => "INVALID_RADIUS",
-            Error::Qrng(_) => "QRNG_ERROR",
-            Error::Config(_) => "CONFIG_ERROR",
-            _ => "INTERNAL_ERROR",
-        };
         ApiError {
+            code: err.error_code().to_string(),
             error: err.to_string(),
-            code: code.to_string(),
         }
     }
 }
@@ -151,17 +144,20 @@ async fn generate_handler(
     }
 
     // Get backend with API key if configured
+    // Read config once to avoid race condition between reads
+    let config = state.config.read().await;
     let backend_name = match &req.backend {
         Some(name) => name.clone(),
-        None => state.backend_name().await,
+        None => config.defaults.backend.clone(),
     };
-    let config = state.config.read().await;
     let api_key = if backend_name == "anu" && !config.api_keys.anu.is_empty() {
-        Some(config.api_keys.anu.as_str())
+        Some(config.api_keys.anu.clone())
     } else {
         None
     };
-    let backend = get_backend_with_key(&backend_name, api_key);
+    drop(config); // Release lock before potentially slow backend operations
+
+    let backend = get_backend_with_key(&backend_name, api_key.as_deref());
 
     // Generate
     let response = generate(

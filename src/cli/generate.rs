@@ -52,6 +52,10 @@ pub struct GenerateArgs {
     #[arg(long, short = 'p')]
     pub points: Option<usize>,
 
+    /// Grid resolution for density analysis
+    #[arg(long, short = 'g')]
+    pub grid_resolution: Option<usize>,
+
     /// Generation mode: standard or flower_power
     #[arg(long, short = 'm')]
     pub mode: Option<String>,
@@ -132,6 +136,7 @@ pub async fn run(args: GenerateArgs) -> Result<()> {
     // Get parameters with config defaults
     let radius = args.radius.unwrap_or(config.defaults.radius);
     let points = args.points.unwrap_or(config.defaults.points);
+    let grid_resolution = args.grid_resolution.unwrap_or(config.defaults.grid_resolution);
     let backend_name = args.backend.unwrap_or(config.defaults.backend.clone());
     let mode_str = args.mode.unwrap_or(config.defaults.mode.clone());
     let format = args.format.unwrap_or(config.defaults.format.clone());
@@ -158,7 +163,7 @@ pub async fn run(args: GenerateArgs) -> Result<()> {
         center,
         radius,
         points,
-        50, // grid_resolution
+        grid_resolution,
         args.include_points,
         mode,
         backend.name(),
